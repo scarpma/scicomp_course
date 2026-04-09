@@ -31,14 +31,19 @@ end module
 program main
     use helper
     implicit none
+    integer :: n
     real(dp) :: a = 0., b = 1.0, result, result_an
-    integer, parameter :: n = 1000
-    real(dp) :: x_values(n), f_values(n)
-    integer :: i
+    real(dp), allocatable :: x_values(:), f_values(:)
+    integer :: i, num_args, stat
+    character(len=64) :: arg
+    num_args = command_argument_count()
+    call get_command_argument(1,arg)
+    read(arg,*,iostat=stat) n
+    allocate(x_values(n), f_values(n))
 
-    write(*,*)"numerical integration of f(x)=x^3 from a=",a," to b=",b
+    write(*,*)"numerical integration of f(x)=x^3 from a=",a," to b=",b,' with ',n,' points'
     call trap(a,b,n,result,x_values,f_values)
-    result_an = 0.25*(b**4 - a**4);
+    result_an = 0.25*(b**4 - a**4)
 
     do i=1,n-1
         write(*,'(a,i4,a,f8.4,a,i4,a,f8.4)')'x[',i,']=',x_values(i),', f(x[',i,'])=',f_values(i)

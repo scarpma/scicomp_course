@@ -6,6 +6,7 @@
 # to build all, build all these targets
 all: trapezoidal_c.exe trapezoidal_f.exe \
      trapezoidal_static_arr_c.exe trapezoidal_static_arr_f.exe \
+     trapezoidal_dynamic_arr_c.exe trapezoidal_dynamic_arr_f.exe \
      hello_c.exe
 
 # generic rules for compiling .c and .F03 files
