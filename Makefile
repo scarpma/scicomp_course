@@ -12,7 +12,7 @@ all: trapezoidal_c.exe trapezoidal_f.exe \
 	gfortran $< -o $@
 
 %_c.exe: %.c
-	gcc $< -o $@
+	gcc -lm $< -o $@
 
 clean:
 	rm *.exe
