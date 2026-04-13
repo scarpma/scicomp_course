@@ -2,6 +2,14 @@ using Printf
 
 f(x) = x^3
 
+#trap(a::Float64, b::Float64, n::Int) = begin
+#    dx = (b - a) / n
+#    x_values = a .+ (0:n-1) .* dx
+#    f_values = f.(x_values)
+#    s = 0.5 * (f(a) + f(b)) + sum(f_values[2:end])
+#    return s * dx, x_values, f_values
+#end
+
 function trap(a::Float64, b::Float64, n::Int)
     dx = (b - a) / n
     s = 0.5 * (f(a) + f(b))
