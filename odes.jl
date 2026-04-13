@@ -52,6 +52,12 @@ for i=2:numTimesteps
   #@printf("t=%.4f: x[%d]=%.4f\n", tValues[i], i, xValues[i])
 end
 
+@btime for i=2:numTimesteps
+  tValues[i] = tValues[i-1] + dt
+  @views expl_euler!(harmonic!, xValues[i-1,:], xValues[i,:], dt)
+  #@printf("t=%.4f: x[%d]=%.4f\n", tValues[i], i, xValues[i])
+end
+
 yValues = harmonic_solution(tValues)
 
 l2err = sum(abs.(yValues .- xValues'))
