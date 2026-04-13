@@ -1,67 +1,171 @@
-#function f(x::Array{Float64,1})
-#  return x.^3
+## lorenz system
+#function f!(t, x, dxdt)
+#  σ = 10
+#  ρ = 28
+#  β = 8/3
+#  dxdt[1] = σ * (x[2] - x[1])
+#  dxdt[2] = x[1] * (ρ - x[3]) - x[2]
+#  dxdt[3] = x[1] * x[2] - β * x[3]
 #end
 
-function lorenz!(x_n, dxdt_n)
-  σ = 10
-  ρ = 28
-  β = 8/3
-  dxdt_n[1] = σ * (x_n[2] - x_n[1])
-  dxdt_n[2] = x_n[1] * (ρ - x_n[3]) - x_n[2]
-  dxdt_n[3] = x_n[1] * x_n[2] - β * x_n[3]
+# harmonic oscillator
+function f!(t, x, dxdt)
+  dxdt[1] =  x[2]
+  dxdt[2] = -x[1]
+  return
 end
-
-function harmonic!(x_n, dxdt_n)
-  dxdt_n[1] = x_n[2]
-  dxdt_n[2] = -x_n[1]
-end
-
-function harmonic_solution(t)
+function f_solution(t)
     x = Array{Float64,2}(undef,2,size(t,1))
     x[1,:] .= cos.(t)
     x[2,:] .= -sin.(t)
     return x
 end
 
-using BenchmarkTools
 
-function expl_euler!(f!, x_n, x_np1, dt)
-  f!(x_n, x_np1) # temporarily store dxdt_n into x_np1
-  x_np1 .= x_n .+ dt .* x_np1
+function expl_euler(tIni, tEnd, x0, dt)
+  numTimesteps = round(Int, (tEnd - tIni) / dt)
+  tValues = Array{Float64,1}(undef,numTimesteps)
+  x       = Array{Float64,2}(undef,size(x0,1),numTimesteps)
+  dxdt    = Array{Float64,2}(undef,size(x0,1),numTimesteps)
+  t = tIni
+  tValues[1] = t
+  x[:,1] .= x0
+  for i=1:numTimesteps-1
+    @views f!(t, x[:,i], dxdt[:,i])
+    @views x[:,i+1] .= x[:,i] .+ dt .* dxdt[:,i]
+    t = t + dt
+    tValues[i+1] = t
+  end
+  return (tValues, x)
 end
 
+function rk2(tIni, tEnd, x0, dt)
+  numTimesteps = round(Int, (tEnd - tIni) / dt)
+  tValues = Array{Float64,1}(undef,numTimesteps)
+  x       = Array{Float64,2}(undef,size(x0,1),numTimesteps)
+  dxdt    = Array{Float64,2}(undef,size(x0,1),numTimesteps)
+  k1      = Array{Float64,1}(undef,size(x0,1))
+  k2      = Array{Float64,1}(undef,size(x0,1))
+  xtmp    = Array{Float64,1}(undef,size(x0,1))
+  t = tIni
+  tValues[1] = t
+  x[:,1] .= x0
+  for i=1:numTimesteps-1
+    # k1
+    @views f!(t, x[:,i], k1)
+    @views xtmp .= x[:,i] .+ 0.5*dt .* k1
+    # k2
+    @views f!(t+dt, xtmp, k2)
+    @views x[:,i+1] .= x[:,i] .+ 0.5*dt .* (k1 .+ k2)
+    t = t + dt
+    tValues[i+1] = t
+  end
+  return (tValues, x)
+end
+
+function rk4(tIni, tEnd, x0, dt)
+  numTimesteps = round(Int, (tEnd - tIni) / dt)
+  tValues = Array{Float64,1}(undef,numTimesteps)
+  x       = Array{Float64,2}(undef,size(x0,1),numTimesteps)
+  dxdt    = Array{Float64,2}(undef,size(x0,1),numTimesteps)
+  k1      = Array{Float64,1}(undef,size(x0,1))
+  k2      = Array{Float64,1}(undef,size(x0,1))
+  k3      = Array{Float64,1}(undef,size(x0,1))
+  k4      = Array{Float64,1}(undef,size(x0,1))
+  xtmp    = Array{Float64,1}(undef,size(x0,1))
+  t = tIni
+  tValues[1] = t
+  x[:,1] .= x0
+  for i=1:numTimesteps-1
+    # k1
+    @views f!(t, x[:,i], k1)
+    @views xtmp .= x[:,i] .+ 0.5 .* dt .* k1
+    # k2
+    f!(t + 0.5*dt, xtmp, k2)
+    @views xtmp .= x[:,i] .+ 0.5 .* dt .* k2
+    # k3
+    f!(t + 0.5*dt, xtmp, k3)
+    @views xtmp .= x[:,i] .+ dt .* k3
+    # k4
+    f!(t + dt, xtmp, k4)
+    @views x[:,i+1] .= x[:,i] .+ (dt/6.0) .* (k1 .+ 2.0 .* k2 .+ 2.0 .* k3 .+ k4)
+    t = t + dt
+    tValues[i+1] = t
+  end
+  return (tValues, x)
+end
+
+function ab2(tIni, tEnd, x0, dt)
+  numTimesteps = round(Int, (tEnd - tIni) / dt)
+  tValues = Array{Float64,1}(undef,numTimesteps)
+  x       = Array{Float64,2}(undef,size(x0,1),numTimesteps)
+  dxdt    = Array{Float64,2}(undef,size(x0,1),numTimesteps)
+  t = tIni
+  tValues[1] = t
+  x[:,1] .= x0
+
+  # start the integration using explicit euler
+  @views f!(t, x[:,1], dxdt[:,1])
+  @views x[:,2] .= x[:,1] .+ dt .* dxdt[:,1]
+  t = t + dt
+  tValues[2] = t
+
+  for i=2:numTimesteps-1
+    @views f!(t, x[:,i], dxdt[:,i])
+    @views x[:,i+1] .= x[:,i] .+ 0.5 * dt .* (3 .* dxdt[:,i] .- dxdt[:,i-1])
+    t = t + dt
+    tValues[i+1] = t
+  end
+  return (tValues, x)
+end
+
+using BenchmarkTools
 using Printf
 using Plots
+plotly()
 
-dim = 2
+do_plot = true
 tIni = 0.
 tEnd = 30.
-dt = 0.02
-# round and cast in julia
-numTimesteps = round(Int, (tEnd - tIni) / dt) + 1
+dt = 0.005
+x0 = [1.0, 0.0]
 
-tValues = Array{Float64,1}(undef, numTimesteps)
-xValues = Array{Float64,2}(undef, numTimesteps, dim)
-tValues[1] = tIni
-#xValues[1,:] .= [1., 1., 1.] # lorenz
-xValues[1,:] .= [1., 0.]
 
-for i=2:numTimesteps
-  tValues[i] = tValues[i-1] + dt
-  @views expl_euler!(harmonic!, xValues[i-1,:], xValues[i,:], dt)
-  #@printf("t=%.4f: x[%d]=%.4f\n", tValues[i], i, xValues[i])
+solver = "expl_eul"
+tValues, xValues = @btime expl_euler(tIni, tEnd, x0, dt)
+yValues = f_solution(tValues)
+l2err = sum(abs.(yValues .- xValues))
+@printf("%s: l2 error = %.2e\n",solver,l2err)
+if do_plot p = plot(tValues,xValues[1,:], xlabel="t", label=solver, lc=1, lw=1) end
+
+solver = "rk2"
+tValues, xValues = @btime rk2(tIni, tEnd, x0, dt)
+yValues = f_solution(tValues)
+l2err = sum(abs.(yValues .- xValues))
+@printf("%s: l2 error = %.2e\n",solver,l2err)
+if do_plot p = plot!(tValues,xValues[1,:], xlabel="t", label=solver, lc=2, lw=1) end
+
+solver = "rk4"
+tValues, xValues = @btime rk4(tIni, tEnd, x0, dt)
+yValues = f_solution(tValues)
+l2err = sum(abs.(yValues .- xValues))
+@printf("%s: l2 error = %.2e\n",solver,l2err)
+if do_plot p = plot!(tValues,xValues[1,:], xlabel="t", label=solver, lc=3, lw=1) end
+
+solver = "ab2"
+tValues, xValues = @btime ab2(tIni, tEnd, x0, dt)
+yValues = f_solution(tValues)
+l2err = sum(abs.(yValues .- xValues))
+@printf("%s: l2 error = %.2e\n",solver,l2err)
+if do_plot p = plot!(tValues,xValues[1,:], xlabel="t", label=solver, lc=4, lw=1) end
+
+
+
+if do_plot
+  p = plot!(tValues, yValues[1,:], xlabel="t", label="solution", lc=1, lw=1, ls=:dash)
+  display(p)
 end
 
-@btime for i=2:numTimesteps
-  tValues[i] = tValues[i-1] + dt
-  @views expl_euler!(harmonic!, xValues[i-1,:], xValues[i,:], dt)
-  #@printf("t=%.4f: x[%d]=%.4f\n", tValues[i], i, xValues[i])
-end
-
-yValues = harmonic_solution(tValues)
-
-l2err = sum(abs.(yValues .- xValues'))
-@printf("l2 error = %.2e\n",l2err)
 
 ## write data to file
 #using DelimitedFiles
