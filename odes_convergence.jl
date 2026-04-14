@@ -1,13 +1,3 @@
-## lorenz system
-#function f!(t, x, dxdt)
-#  σ = 10
-#  ρ = 28
-#  β = 8/3
-#  dxdt[1] = σ * (x[2] - x[1])
-#  dxdt[2] = x[1] * (ρ - x[3]) - x[2]
-#  dxdt[3] = x[1] * x[2] - β * x[3]
-#end
-
 # harmonic oscillator
 function f!(t, x, dxdt)
   dxdt[1] =  x[2]
@@ -122,65 +112,38 @@ end
 using BenchmarkTools
 using Printf
 using Plots
-plotly()
+#plotly()
 
 do_plot = true
 tIni = 0.
-tEnd = 30.
+tEnd = 3.
 dt = 0.005
 x0 = [1.0, 0.0]
 
+dts = 0:8
+dts = 0.5 .* 0.25 .^ dts
+println(dts)
 
-solver = "expl_eul"
-tValues, xValues = @btime expl_euler(tIni, tEnd, x0, dt)
-yValues = f_solution(tValues)
-l2err = sum(abs.(yValues .- xValues))
-@printf("%s: l2 error = %.2e\n",solver,l2err)
-if do_plot p = plot(tValues,xValues[1,:], xlabel="t", label=solver, lc=1, lw=1) end
+p = plot()
+solvers = [("expl_eul", expl_euler, 1), 
+           ("ab2", ab2, 2),
+           ("rk2", rk2, 2),
+           ("rk4", rk4, 4)]
+for (i, (solver_name, solver, order)) in enumerate(solvers)
+  errs = Float64[]
+  for dt in dts
+    tValues, xValues = solver(tIni, tEnd, x0, dt)
+    yValues = f_solution(tValues)
+    maxerr = maximum(abs.(yValues .- xValues))
+    push!(errs, maxerr)
+  end
+  ref = errs[1] .* (dts ./ dts[1]) .^ order
+  plot!(dts, ref, ls=:dash, lc=i, label="", lw=3)
+  plot!(dts, errs, marker=:circle, label=solver_name, lc=:black, mc=i)
 
-solver = "rk2"
-tValues, xValues = @btime rk2(tIni, tEnd, x0, dt)
-yValues = f_solution(tValues)
-l2err = sum(abs.(yValues .- xValues))
-@printf("%s: l2 error = %.2e\n",solver,l2err)
-if do_plot p = plot!(tValues,xValues[1,:], xlabel="t", label=solver, lc=2, lw=1) end
-
-solver = "rk4"
-tValues, xValues = @btime rk4(tIni, tEnd, x0, dt)
-yValues = f_solution(tValues)
-l2err = sum(abs.(yValues .- xValues))
-@printf("%s: l2 error = %.2e\n",solver,l2err)
-if do_plot p = plot!(tValues,xValues[1,:], xlabel="t", label=solver, lc=3, lw=1) end
-
-solver = "ab2"
-tValues, xValues = @btime ab2(tIni, tEnd, x0, dt)
-yValues = f_solution(tValues)
-l2err = sum(abs.(yValues .- xValues))
-@printf("%s: l2 error = %.2e\n",solver,l2err)
-if do_plot p = plot!(tValues,xValues[1,:], xlabel="t", label=solver, lc=4, lw=1) end
-
-
-
-if do_plot
-  p = plot!(tValues, yValues[1,:], xlabel="t", label="solution", lc=1, lw=1, ls=:dash)
-  display(p)
 end
-
-
-## write data to file
-#using DelimitedFiles
-#data = hcat(tValues, xValues)  # combine into one matrix
-#writedlm("ode.csv", data, ' ')
-
-#plotly()
-
-#p = plot( tValues, xValues[:,1], xlabel="t", ylabel="x(t)", title="Expl Euler", lc=1, lw=2)
-#p = plot!(tValues, xValues[:,2], xlabel="t", ylabel="y(t)", lc=2, lw=2)
-##p = plot!(tValues, xValues[:,3], xlabel="t", ylabel="z(t)", title="Explicit Euler Solution", lw=2)
-#
-#p = plot!(tValues, yValues[1,:], label="analytical", lc=1, ls=:dash)
-#p = plot!(tValues, yValues[2,:]                    , lc=2, ls=:dash)
-#display(p)
-
-#p = plot(xValues[:,1],xValues[:,2],xValues[:,3], lw=2, xlabel="X",ylabel="Y",zlabel="Z")
-#display(p)
+plot!(xaxis=(:log10,(1e-6,1e-0)), xflip=true)
+plot!(yaxis=:log10, xlabel="dt")
+plot!(yaxis=:log10, ylabel="max error")
+plot!(legend=:outertopright)
+display(p)
